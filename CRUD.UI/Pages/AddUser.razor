@@ -1,0 +1,53 @@
+﻿@page "/AddUser"
+@using Contract.Command.User
+@using Contract.Messaging.User
+@using Contract.ViewModels.User
+@inject MediatR.IMediator _mediator
+@inject NavigationManager NavManager
+@inject IJSRuntime _js
+<h3>AddUser</h3>
+
+<div class="form-group">
+    <label class="mb-1" for="exampleInputEmail1">User name</label>
+    <input type="text" class="form-control mb-3" id="userName" aria-describedby="emailHelp" placeholder="Enter user name">
+</div>
+<div class="form-group">
+    <label class="mb-1" for="exampleInputPassword1">family name</label>
+    <input type="text" class="form-control mb-3" id="familyName" placeholder="Enter family name">
+</div>
+
+<button type="submit" class="btn btn-primary" onclick="@(() => AddNewUser())">Submit</button>
+
+@code {
+    private IJSObjectReference module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await _js.InvokeAsync<IJSObjectReference>("import", "./Pages/AddUser.razor.js");
+        }
+    }
+    private async Task AddNewUser()
+    {
+        var userName = await module.InvokeAsync<string>("GetUserName", "userName");
+        var familyName = await module.InvokeAsync<string>("GetFamilyName", "familyName");
+        if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(familyName))
+        {
+            await module.InvokeAsync<string>("ValidationError");
+        }
+        else
+        {
+            var res = await _mediator.Send(new AddUserCommand(new AddUserRequest { ViewModel = new AddUserViewModel { Name = userName, FamilyName = familyName } }));
+            if (res.Result)
+            {
+                NavManager.NavigateTo("/");
+            }
+            else
+            {
+                await module.InvokeAsync<string>("Faild");
+            }
+        }
+
+    }
+}

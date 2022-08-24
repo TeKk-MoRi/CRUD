@@ -1,0 +1,117 @@
+﻿@page "/"
+@using Contract.Command.User
+@using Contract.Messaging.User
+@using Contract.Query
+@using Contract.ViewModels.User
+
+<PageTitle>Weather forecast</PageTitle>
+
+@inject NavigationManager NavManager
+@inject MediatR.IMediator _mediator
+@inject IJSRuntime _js
+
+<h1>User list</h1>
+
+<p>This component demonstrates fetching data from a service.</p>
+
+@if (people == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="d-flex justify-content-end">
+        <button class="btn btn-primary" @onclick="AddUser">Add new user</button>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Family</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var person in people)
+            {
+                <tr id="@person.Id">
+                    <td>@person.Id</td>
+                    <td>@person.Name</td>
+                    <td>@person.FamilyName</td>
+                    <td>
+
+                        <button class="btn btn-danger" @onclick="() => DeleteUser(person.Id)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z" />
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z" />
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <nav aria-label="...">
+        <ul class="pagination pagination-lg justify-content-center">
+            @for (int i = 1; i <= pageCount; i++)
+            {
+                int j = i;
+                <li class="page-item"><a class="page-link" @onclick="@(() => ChangePage(j))">@i</a></li>
+            }
+
+        </ul>
+    </nav>
+}
+
+@code {
+    List<UserViewModel> people;
+    int pageCount = 1;
+    private IJSObjectReference module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await _js.InvokeAsync<IJSObjectReference>("import", "./Pages/AddUser.razor.js");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var res = await _mediator.Send(new GetAllUsersQuery(new GetAllUsersRequest { ViewModel = new GetAllUsersViewModel { Take = 20, pageId = 1 } }));
+        people = res.Result;
+        pageCount = res.PageCount;
+    }
+    private async Task ChangePage(int id)
+    {
+        var res = await _mediator.Send(new GetAllUsersQuery(new GetAllUsersRequest { ViewModel = new GetAllUsersViewModel { Take = 20, pageId = id } }));
+        people = res.Result;
+    }
+
+    private void AddUser()
+    {
+        NavManager.NavigateTo("/AddUser");
+    }
+    private async Task DeleteUser(int id)
+    {
+        var res = await _mediator.Send(new DeleteUserCommand(new DeleteUserRequest { ViewModel = new UserIdViewModel { Id = id } }));
+        if (module != null)
+        {
+            if (res.Result)
+            {
+                await module.InvokeAsync<string>("DeleteUser", id.ToString());
+            }
+            else
+            {
+                await module.InvokeAsync<string>("Faild");
+            }
+        }
+        else
+        {
+            module = await _js.InvokeAsync<IJSObjectReference>("import", "./Pages/AddUser.razor.js");
+        }
+    }
+}
